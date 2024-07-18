@@ -16,10 +16,10 @@ The scripts will create the following resources
 | Project              |      Set by user      | Optional, you may reuse an existing project. If the project is created by Terraform, it will enable the APIs for Cloud Build, Dataflow,  Monitoring, Pub/Sub, Dataflow Autoscaling, and Artifact Registry                                                                                        |
 | Docker registry      | `dataflow-containers` | An Artifact Registry Docker repo for the custom Dataflow container used in the pipeline. The Cloud Build service agent is granted admin role in this repository. The Dataflow service account is granted reader role. By default, only the 3 latest versions of each image are kept in the repo. |
 | Bucket               |  Same as project id   | Using the standard storage class, this is a regional bucket in the region specified by the user.                                                                                                                                                                                                 |
-| Pub/Sub topic        |      `messages`       | The input Pub/Sub topic for the sample pipeline.                                                                                                                                                                                                                                                 |
-| Pub/Sub topic        |     `predictions`     | The output Pub/Sub topic for the sample pipeline.                                                                                                                                                                                                                                                |
-| Pub/Sub subscription |    `messages-sub`     | The subscription to the `messages` topic that is actually used by the Dataflow pipeline.                                                                                                                                                                                                         |
-| Pub/Sub subscription |   `predictions-sub`   | The subscription to the `predictions` topic, useful to visualize the messages produced by the pipeline.                                                                                                                                                                                          |
+| Pub/Sub topic        |       `prompts`       | The input Pub/Sub topic for the sample pipelines.                                                                                                                                                                                                                                                |
+| Pub/Sub topic        |     `predictions`     | The output Pub/Sub topic for the sample pipelines.                                                                                                                                                                                                                                               |
+| Pub/Sub subscription |     `prompts-sub`     | The subscription to the `prompts` topic that is actually used by the Dataflow pipelines.                                                                                                                                                                                                         |
+| Pub/Sub subscription |   `predictions-sub`   | The subscription to the `predictions` topic, useful to visualize the messages produced by the pipelines.                                                                                                                                                                                         |
 | Service account      |   `my-dataflow-sa`    | Dataflow worker servive account. It has storage admin, Dataflow worker, metrics writer and Pub/Sub editor roles assigned at project level.                                                                                                                                                       |
 | VPC network          |    `dataflow-net`     | If the project is created from scratch, the default network is removed and this network is re-created with a single regional sub-network.                                                                                                                                                        |
 | Cloud NAT            |    `dataflow-nat`     | Cloud NAT in the region specified by the user, in case the Dataflow workers need to reach the Internet. This is not necessary for the sample pipeline provided.                                                                                                                                  |
@@ -55,7 +55,12 @@ The default values of all the optional configuration variables are set for devel
       region = "YOUR_REGION"
       ```
     - If this is a production deployment, make sure you change also the optional variables.
-2. **Initialize Terraform:**
+2. If you are only using the Gemma pipeline, you may disable Vertex AI, since the model will run locally
+   in the Dataflow workers using a GPU. Add the following variable to `terraform.tfvars`:
+   ```
+   enable_vertexai = false
+   ```
+3. **Initialize Terraform:**
     - Run the following command to initialize Terraform:
       ```bash
       terraform init

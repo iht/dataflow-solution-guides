@@ -24,6 +24,12 @@ variable "destroy_all_resources" {
   default     = true
 }
 
+variable "enable_vertex_ai" {
+  description = "Set to true if you plan to use a Vertex AI model, such as Gemini, Imagen, or a custom model. Optional, default is true."
+  type        = bool
+  default     = true
+}
+
 variable "network_prefix" {
   description = "Prefix to be used for networks and subnetworks"
   type        = string
