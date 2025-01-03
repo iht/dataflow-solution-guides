@@ -1,4 +1,4 @@
-#  Copyright 2024 Google LLC
+#  Copyright 2025 Google LLC
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -26,14 +26,22 @@ locals {
   max_dataflow_workers     = 10
 }
 
+resource "google_project_service" "crm" {
+  project                    = var.project_id
+  service                    = "cloudresourcemanager.googleapis.com"
+  disable_dependent_services = true
+}
+
 // Project
 module "google_cloud_project" {
-  source          = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/project?ref=v32.0.0"
+  depends_on      = [google_project_service.crm]
+  source          = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/project?ref=v36.0.1"
   billing_account = var.billing_account
   project_create  = var.project_create
   name            = var.project_id
   parent          = var.organization
   services = [
+    "iam.googleapis.com",
     "dataflow.googleapis.com",
     "monitoring.googleapis.com",
     "pubsub.googleapis.com",
@@ -41,11 +49,15 @@ module "google_cloud_project" {
     "spanner.googleapis.com",
     "bigquery.googleapis.com"
   ]
+  service_config = {
+    disable_on_destroy         = true
+    disable_dependent_services = true
+  }
 }
 
 // Buckets for staging data, scripts, etc, in the two regions
 module "buckets" {
-  source        = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/gcs?ref=v32.0.0"
+  source        = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/gcs?ref=v36.0.1"
   project_id    = module.google_cloud_project.project_id
   name          = module.google_cloud_project.project_id
   location      = var.region
@@ -55,7 +67,7 @@ module "buckets" {
 
 // BigQuery dataset for final destination
 module "dataset" {
-  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/bigquery-dataset?ref=v32.0.0"
+  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/bigquery-dataset?ref=v36.0.1"
   project_id = module.google_cloud_project.project_id
   id         = local.bigquery_dataset
   access = {
@@ -63,6 +75,10 @@ module "dataset" {
   }
   access_identities = {
     dataflow-writer = module.dataflow_sa.email
+  }
+
+  options = {
+    delete_contents_on_destroy = true
   }
 }
 
@@ -94,7 +110,7 @@ CREATE TABLE ${local.spanner_table} (
   passenger_count INT64,
 ) PRIMARY KEY(ride_id, point_idx)
 DDL1
-  ,
+    ,
     <<DDL2
 CREATE CHANGE STREAM ${local.spanner_change_stream} FOR ${local.spanner_table}
 OPTIONS(value_capture_type = 'NEW_ROW_AND_OLD_VALUES')
@@ -132,7 +148,7 @@ resource "google_spanner_database_iam_binding" "read_write_metadata" {
 
 // Service account
 module "dataflow_sa" {
-  source       = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/iam-service-account?ref=v32.0.0"
+  source       = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/iam-service-account?ref=v36.0.1"
   project_id   = module.google_cloud_project.project_id
   name         = local.dataflow_service_account
   generate_key = false
@@ -148,7 +164,7 @@ module "dataflow_sa" {
 
 // Network
 module "vpc_network" {
-  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/net-vpc?ref=v32.0.0"
+  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/net-vpc?ref=v36.0.1"
   project_id = module.google_cloud_project.project_id
   name       = "${var.network_prefix}-net"
   subnets = [
@@ -167,7 +183,7 @@ module "vpc_network" {
 
 module "firewall_rules" {
   // Default rules for internal traffic + SSH access via IAP
-  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/net-vpc-firewall?ref=v32.0.0"
+  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/net-vpc-firewall?ref=v36.0.1"
   project_id = module.google_cloud_project.project_id
   network    = module.vpc_network.name
   default_rules_config = {
@@ -179,15 +195,15 @@ module "firewall_rules" {
     allow-egress-dataflow = {
       deny        = false
       description = "Dataflow firewall rule egress"
-      targets = ["dataflow"]
-      rules = [{ protocol = "tcp", ports = [12345, 12346] }]
+      targets     = ["dataflow"]
+      rules       = [{ protocol = "tcp", ports = [12345, 12346] }]
     }
   }
   ingress_rules = {
     allow-ingress-dataflow = {
       description = "Dataflow firewall rule ingress"
-      targets = ["dataflow"]
-      rules = [{ protocol = "tcp", ports = [12345, 12346] }]
+      targets     = ["dataflow"]
+      rules       = [{ protocol = "tcp", ports = [12345, 12346] }]
     }
   }
 }
@@ -195,7 +211,7 @@ module "firewall_rules" {
 // So we can get to Internet if necessary (from the Dataflow region)
 module "regional_nat" {
   count          = var.internet_access ? 1 : 0
-  source         = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/net-cloudnat?ref=v32.0.0"
+  source         = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/net-cloudnat?ref=v36.0.1"
   project_id     = module.google_cloud_project.project_id
   region         = var.region
   name           = "${var.network_prefix}-nat"

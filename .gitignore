@@ -1,3 +1,4 @@
+.vscode
 .idea
 *.iml
 .DS_Store### Java template
@@ -303,3 +304,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Ignore Python build files
+**/Pipfile
+**/Pipfile.lock
+**/.venv
